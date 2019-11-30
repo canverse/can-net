@@ -48,7 +48,6 @@ services:
       - /etc/localtime:/etc/localtime:ro
     env_file:
       - db.env
-    environment:
     restart: unless-stopped
   
   app:
