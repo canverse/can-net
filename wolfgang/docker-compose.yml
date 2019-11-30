@@ -1,0 +1,87 @@
+version: "3.2"
+
+# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+services:
+  dns:
+    container_name: dns
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "8011:80/tcp"
+      - "443:443/tcp"
+    environment:
+      TZ: 'Europe/Berlin'
+      WEBPASSWORD: 'shutyourpihole'
+    # Volumes store your data between container upgrades
+    volumes:
+      - './config/dns.can/02-local-dns.conf:/etc/dnsmasq.d/02-local-dns.conf'
+      - './config/dns.can/can.list:/etc/pihole/can.list'
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
+    # Recommended but not required (DHCP needs NET_ADMIN)
+    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+
+  nginx:
+    container_name: nginx
+    image: nginx
+    ports:
+      - "80:80/tcp"
+    volumes:
+      - ./config/nginx.can/nginx.conf:/etc/nginx/nginx.conf
+      - ./volumes/nginx.can/logs/:/etc/nginx/logs/
+    command: [nginx-debug, '-g', 'daemon off;']
+    restart: unless-stopped
+
+  git:
+    container_name: git
+    image: gitea/gitea:latest
+    ports:
+      - "22:22/tcp"
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+    restart: unless-stopped
+    volumes:
+      - ./volumes/git.can/:/data
+
+  rtorrent:
+    image: crazymax/rtorrent-rutorrent:latest
+    container_name: rtorrent
+    ports:
+      - target: 6881
+        published: 6881
+        protocol: udp
+      - target: 50000
+        published: 50000
+        protocol: tcp
+    env_file:
+      - "./config/torrent.can/torrent.can.env"
+    volumes:
+      - ./config/torrent.can/.rtorrent.rc:/data/rtorrent/.rtorrent.rc
+      - ./volumes/torrent.can/passwd:/passwd
+      - ./volumes/torrent.can/.session:/data/rtorrent/.session
+      - /f/:/data/drives/f
+      - /g/:/data/drives/g
+      - /e/:/data/drives/e
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 32000
+        hard: 40000
+    restart: always
+
+  files:
+    image: filebrowser/filebrowser
+    container_name: files
+    volumes:
+      - ./config/files.can/.filebrowser.json:/.filebrowser.json
+      - ./volumes/files.can/database.db:/database.db
+      - /f/:/srv/drives/f
+      - /g/:/srv/drives/g
+      - /e/:/srv/drives/e
