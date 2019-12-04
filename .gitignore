@@ -1,3 +1,4 @@
 *.env
+localtime
 volumes/
 .idea
